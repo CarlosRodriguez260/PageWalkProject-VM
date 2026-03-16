@@ -10,7 +10,7 @@ Guest Virtual -> Guest Physical -> Host Physical
 ![alt text](image.png)
 ![alt text](image-1.png)
 
-## Rough Program Flow
+## Rough Program Flow:
 parse args
 
 virtual_address = input
