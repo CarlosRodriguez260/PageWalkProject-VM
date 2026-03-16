@@ -8,6 +8,7 @@
 Guest Virtual -> Guest Physical -> Host Physical
 
 ![alt text](image.png)
+![alt text](image-1.png)
 
 ## Rough Program Flow
 parse args
@@ -26,3 +27,8 @@ guest_phys = guest_page_walk(CR3)
 host_phys = ept_page_walk(EPTP, guest_phys)
 
 print(host_phys)
+
+8416584087026900992
++ offset (3372)
+=
+8416584087026904364
