@@ -8,116 +8,135 @@ def load_tables(csv_file):
         reader = csv.reader(f)
         rows = list(reader)
 
-    # transpose so each column becomes a table
     cols = list(zip(*rows))
 
     for col in cols:
-        table_addr = col[0]
-        entries = list(col[1:])
+        table_addr = int(col[0],16)
+        entries = []
+        for entry in col[1:]:
+            entries.append(int(entry,16))
         tables[table_addr] = entries
 
     return tables
 
+
+def extract_indexes(addr):
+    offset = addr & 0xFFF
+    pt   = (addr >> 12) & 0x1FF
+    pd   = (addr >> 21) & 0x1FF
+    pdpt = (addr >> 30) & 0x1FF
+    pml4 = (addr >> 39) & 0x1FF
+
+    return pml4, pdpt, pd, pt, offset
+
+def x_walk(base, addr, tables):
+    pml4_i, pdpt_i, pd_i, pt_i, offset = extract_indexes(addr)
+    # print("X-Walk...")
+    # print(f"PT: {pt_i}") 
+    # print(f"PD: {pd_i}")
+    # print(f"PDPT: {pdpt_i}") 
+    # print(f"PML4: {pml4_i}")
+    # print(f"Offset: {offset}")
+    # print("Base Address Check")
+    if base not in tables:
+        return addr
+
+    # PML4
+    # print("PML4 Check")
+    entry = tables[base][pml4_i] 
+    current = entry
+    # print(hex(current))
+    if current not in tables:
+        # print("X-Walk done...")
+        return entry + offset
+    
+
+    # PDPT
+    # print("PDPT Check")
+    entry = tables[current][pdpt_i]
+    current = entry
+    # print(hex(current))
+    if current not in tables:
+        # print("X-Walk done...")
+        return entry + offset
+
+    # PD
+    # print("PD Check")
+    entry = tables[current][pd_i]
+    current = entry
+    # print(hex(current))
+    if current not in tables:
+        # print("X-Walk done...")
+        return entry + offset
+
+    # PT
+    # print("PT Check")
+    entry = tables[current][pt_i]
+    # print(hex(entry+offset))
+    # print("X-Walk done...")
+    return entry + offset
+
+# Main
 if len(sys.argv) > 1:
-    # print("\nStarting Page Walk...")
-    tables = load_tables(sys.argv[3])
-    # print(tables)
-    # print("\n")
+    CR3 = int(sys.argv[1],16) # Guest Page Table
+    EPTP = int(sys.argv[2],16) # Host (EPT)
+    csv_file = sys.argv[3]
+    GVA = int(sys.argv[4],16) 
+    tables = load_tables(csv_file)
 
-    # Parse Arguments
-    CR3 = int(sys.argv[1], 16)
-    EPT_PTR = int(sys.argv[2], 16)
-    GVA = int(sys.argv[4], 16)
+    pml4_i, pdpt_i, pd_i, pt_i, offset = extract_indexes(GVA)
+    # print(f"PT: {pt_i}") 
+    # print(f"PD: {pd_i}")
+    # print(f"PDPT: {pdpt_i}") 
+    # print(f"PML4: {pml4_i}")
+    # print(f"Offset: {offset}")
+    # print("Base Address Check")
+    if CR3 not in tables:
+        print(hex(GVA))
+        sys.exit()
 
-    # Turn GVA into indexes
-    offset = GVA & 0xFFF
-    pt_i    = (GVA >> 12) & 0x1FF
-    pd_i     = (GVA >> 21) & 0x1FF
-    pdpt_i   = (GVA >> 30) & 0x1FF
-    pml4_i   = (GVA >> 39) & 0x1FF
-    print(f"Offset: {offset}") # Fine
-    print(f"PT: {pt_i}") # Fine
-    print(f"PD: {pd_i}") # Fine
-    print(f"PDPT: {pdpt_i}") 
-    print(f"PML4: {pml4_i}\n")
-
-    # Guest Page Walk
-    current_table = hex(CR3)
-    print(current_table)
-    print(f"{pml4_i} | {pml4_i+2} in excel.\n")
-    pml4_entry = tables[current_table][pml4_i] # Use modulus if entries < 512
-    current_table = pml4_entry
-
-    print(current_table)
-    print(f"{pdpt_i} | {pdpt_i+2} in excel.\n")
-    pdpt_entry = tables[current_table][pdpt_i]
-    current_table = pdpt_entry
-
-    print(current_table)
-    print(f"{pd_i} | {pd_i+2} in excel.\n")
-    pd_entry = tables[current_table][pd_i]
-    current_table = pd_entry
-
-    pt_entry = tables[current_table][pt_i]
-    GPA = int(pt_entry, 16) + offset 
-    # print(f"Final GPA: {hex(GPA)}")
-    print(hex(GPA))
-
-    # Turn GPA into indexes
-    # offset = GPA & 0xFFF
-    # pt_i    = (GPA >> 12) & 0x1FF
-    # pd_i     = (GPA >> 21) & 0x1FF
-    # pdpt_i   = (GPA >> 30) & 0x1FF
-    # pml4_i   = (GPA >> 39) & 0x1FF
-
-    # # Host Page Walk
-    # current_table = hex(EPT_PTR)
-    # pml4_entry = tables[current_table][pml4_i] # Use modulus if entries < 512
-    # current_table = pml4_entry
-
-    # pdpt_entry = tables[current_table][pdpt_i]
-    # current_table = pdpt_entry
-
-    # pd_entry = tables[current_table][pd_i]
-    # current_table = pd_entry
-
-    # pt_entry = tables[current_table][pt_i]
-    # HPA = int(pt_entry, 16) + offset 
-    # # print(f"Final HPA: {hex(HPA)}")
-    # print(HPA)
-
-# GUEST_PML4_base = sys.argv[]
-
-    # # Hex to Binary Mapper
-    # hex_bin_map = {
-    #     '0':'0000',
-    #     '1':'0001',
-    #     '2':'0010',
-    #     '3':'0011',
-    #     '4':'0100',
-    #     '5':'0101',
-    #     '6':'0110',
-    #     '7':'0111',
-    #     '8':'1000',
-    #     '9':'1001',
-    #     'A':'1010',
-    #     'B':'1011',
-    #     'C':'1100',
-    #     'D':'1101',
-    #     'E':'1110',
-    #     'F':'1111',
-    # }
-
-    # # Switch GVA from hex to binary string
-    # binary = ''
-    # for hex in sys.argv[4][2:].upper():
-    #     print(f"Hex: {hex} -> Binary: {hex_bin_map[hex]}")
-
-    #     if len(binary) == 0 and hex=='0':
-    #         continue
-    #     binary += hex_bin_map[hex]
-    # print(binary)
-
-    # if len(binary)!=48:
-    #     raise ValueError(f"Total bit count: {len(binary)}. Incorrect! Must be 48.")
-    # print(f"Total bit count: {len(binary)}")
+    # PML4
+    # print("PML4 Check")
+    # print(hex(CR3))
+    entry = tables[CR3][pml4_i] 
+    current = entry
+    # print(hex(current))
+    if current not in tables:
+        current = x_walk(EPTP, current, tables)
+        current = tables[current][pt_i]
+        current += offset
+        print(hex(current))
+        sys.exit()
+    
+  
+    # PDPT
+    # print("PDPT Check")
+    entry = tables[current][pdpt_i]
+    current = entry
+    # print(hex(current))
+    if current not in tables:
+        current = x_walk(EPTP, current, tables)
+        current = tables[current][pt_i]
+        current += offset
+        print(hex(current))
+        sys.exit()
+    
+    
+    # PD
+    # print("PD Check")
+    entry = tables[current][pd_i]
+    current = entry
+    if current not in tables:
+        current = x_walk(EPTP, current, tables)
+        current = tables[current][pt_i]
+        current += offset
+        print(hex(current))
+        sys.exit()
+    
+    # PT
+    # print("PT Check")
+    if current in tables:
+        entry = tables[current][pt_i]
+        print(hex(x_walk(EPTP, entry, tables) + offset))
+    else:
+        print(hex(current+ offset))
